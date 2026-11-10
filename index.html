@@ -1,0 +1,361 @@
+<title>คิดคะแนนสมรรถภาพ ทบ.</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one narrow column like a printed scorecard. Inputs on top, one row per exercise with score and level meter, summary table and criteria table last. */
+:root {
+  --bg: #EDF0EA;
+  --surface: #FAFBF8;
+  --ink: #1C241B;
+  --muted: #586456;
+  --line: #CFD6CA;
+  --accent: #3E5A2D;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #DCE6D2;
+  --good: #2D6A39;
+  --warn: #9A5B05;
+  --bad: #A23A2C;
+  --font-display: "Prompt", "Sarabun", system-ui, sans-serif;
+  --font-body: "Sarabun", "Noto Sans Thai", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131712; --surface: #1B211A; --ink: #E7ECE2; --muted: #9BA696; --line: #333D31;
+    --accent: #A5CC87; --accent-ink: #10170D; --accent-soft: #29361F;
+    --good: #7FCB8D; --warn: #E0A23F; --bad: #F08B7C;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131712; --surface: #1B211A; --ink: #E7ECE2; --muted: #9BA696; --line: #333D31;
+  --accent: #A5CC87; --accent-ink: #10170D; --accent-soft: #29361F;
+  --good: #7FCB8D; --warn: #E0A23F; --bad: #F08B7C;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.55;
+  padding-block: 24px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; line-height: 1.25; }
+h1 { font-size: 1.6rem; font-weight: 700; }
+h2 { font-size: 1.15rem; font-weight: 600; }
+.lead { margin: 4px 0 0; color: var(--muted); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.profile { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: end; }
+label.f { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: .95rem; min-width: 0; }
+.hint { font-weight: 400; color: var(--muted); font-size: .85rem; }
+input[type="number"] {
+  font: inherit; font-size: 1.1rem; font-variant-numeric: tabular-nums; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%; min-width: 0;
+}
+input[type="number"]:focus-visible, .seg input:focus-visible + span, button:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg); }
+.seg label { display: block; cursor: pointer; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span { display: block; text-align: center; padding: 10px 8px; font-weight: 600; font-size: 1.05rem; }
+.seg input:checked + span { background: var(--accent); color: var(--accent-ink); }
+.note-ex { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; color: var(--muted); font-size: .9rem; }
+button.ghost { font: inherit; font-weight: 600; font-size: .9rem; color: var(--accent); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+button.ghost:hover { background: var(--accent-soft); }
+
+.ex { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr); gap: 16px 20px; }
+.ex-head { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.unit { color: var(--muted); font-size: .9rem; }
+.ex .inputs { display: flex; flex-direction: column; gap: 10px; }
+.timein { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.timein label { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--muted); }
+.chk { display: flex; gap: 8px; align-items: flex-start; font-size: .9rem; }
+.chk input { margin-top: 5px; width: 18px; height: 18px; accent-color: var(--accent); }
+.res { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.score-line { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.score { font-family: var(--font-display); font-weight: 700; font-size: 2.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.of { color: var(--muted); }
+.lvl { margin-left: auto; font-weight: 600; font-size: .9rem; padding: 2px 10px; border-radius: 99px; background: var(--accent-soft); color: var(--ink); }
+.lvl.low { background: transparent; color: var(--bad); border: 1px solid var(--bad); }
+.meter { display: flex; gap: 3px; }
+.meter i { flex: 1; height: 10px; border-radius: 2px; background: var(--line); }
+.meter i.on { background: var(--accent); }
+.meter-scale { display: flex; justify-content: space-between; font-size: .75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.next { font-size: .9rem; color: var(--muted); margin: 0; }
+.empty { color: var(--muted); margin: 0; }
+
+.total { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.total-num { font-family: var(--font-display); font-weight: 700; font-size: 3.2rem; line-height: 1; font-variant-numeric: tabular-nums; color: var(--accent); }
+.total-num small { font-size: 1.4rem; font-weight: 600; margin-left: 2px; }
+.total-sub { color: var(--muted); font-size: .95rem; max-width: 22rem; }
+.tbl-wrap { overflow-x: auto; margin-top: 12px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; font-size: .95rem; }
+th, td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th { font-weight: 600; color: var(--muted); font-size: .85rem; }
+tfoot td { font-weight: 700; border-bottom: 0; border-top: 2px solid var(--ink); }
+td.hit { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+details summary { cursor: pointer; font-family: var(--font-display); font-weight: 600; }
+.foot { color: var(--muted); font-size: .85rem; margin: 0; }
+.err { color: var(--bad); font-weight: 600; margin: 0; }
+
+@media (max-width: 560px) {
+  .ex { grid-template-columns: minmax(0, 1fr); }
+  .profile { grid-template-columns: minmax(0, 1fr); }
+  .lvl { margin-left: 0; }
+}
+@media (prefers-reduced-motion: no-preference) { .meter i { transition: background-color .15s; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>คิดคะแนนสมรรถภาพ ทบ.</h1>
+    <p class="lead">ใส่อายุ เพศ และผลแต่ละท่า ระบบให้คะแนนเต็ม 100 ต่อท่า แล้วสรุปเป็นเปอร์เซ็นต์รวม ไม่ต้องติดตั้งหรือสมัครใช้งาน</p>
+  </header>
+
+  <section class="panel" aria-labelledby="h-profile">
+    <h2 id="h-profile" style="margin-bottom:12px">ข้อมูลผู้ทดสอบ</h2>
+    <div class="profile">
+      <label class="f" for="age">อายุ (ปี)<input id="age" type="number" inputmode="numeric" min="14" max="60" value="30"><span class="hint">เกณฑ์ครอบคลุมอายุ 14 ถึง 60 ปี</span></label>
+      <div class="f" role="radiogroup" aria-label="เพศ">เพศ
+        <div class="seg">
+          <label><input type="radio" name="sex" id="sex-m" value="m" checked><span>ชาย</span></label>
+          <label><input type="radio" name="sex" id="sex-f" value="f"><span>หญิง</span></label>
+        </div>
+      </div>
+    </div>
+    <p id="age-err" class="err" hidden style="margin-top:12px">กรอกอายุระหว่าง 14 ถึง 60 ปี</p>
+  </section>
+
+  <div class="note-ex"><span>ค่าที่ใส่ไว้เป็นตัวอย่าง แก้ไขหรือล้างเพื่อกรอกของคุณ</span><button class="ghost" id="clear" type="button">ล้างผลทั้งหมด</button></div>
+
+  <section class="panel ex" aria-labelledby="h-pu">
+    <div class="ex-head"><h2 id="h-pu">1. ดันพื้น</h2><span class="unit">จำนวนครั้งใน 2 นาที</span></div>
+    <div class="inputs">
+      <label class="f" for="pu">จำนวนครั้ง<input id="pu" type="number" inputmode="numeric" min="0" max="200" value="55"></label>
+      <label class="chk" id="mod-wrap" for="pumod" hidden><input id="pumod" type="checkbox"><span>ท่าอนุโลม (ชาย 45 ปีขึ้นไป)</span></label>
+    </div>
+    <div class="res" id="r-pu" aria-live="polite"></div>
+  </section>
+
+  <section class="panel ex" aria-labelledby="h-pl">
+    <div class="ex-head"><h2 id="h-pl">2. ท่ากระดานคว่ำ</h2><span class="unit">เวลาที่ค้างได้ นาที:วินาที</span></div>
+    <div class="inputs">
+      <div class="timein">
+        <label for="pm">นาที<input id="pm" type="number" inputmode="numeric" min="0" max="10" value="2"></label>
+        <label for="ps">วินาที<input id="ps" type="number" inputmode="numeric" min="0" max="59" value="30"></label>
+      </div>
+    </div>
+    <div class="res" id="r-pl" aria-live="polite"></div>
+  </section>
+
+  <section class="panel ex" aria-labelledby="h-rn">
+    <div class="ex-head"><h2 id="h-rn">3. วิ่ง 2 กม.</h2><span class="unit">เวลาที่ใช้ นาที:วินาที (ยิ่งน้อยยิ่งดี)</span></div>
+    <div class="inputs">
+      <div class="timein">
+        <label for="rm">นาที<input id="rm" type="number" inputmode="numeric" min="0" max="30" value="10"></label>
+        <label for="rs">วินาที<input id="rs" type="number" inputmode="numeric" min="0" max="59" value="45"></label>
+      </div>
+    </div>
+    <div class="res" id="r-rn" aria-live="polite"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-sum">
+    <h2 id="h-sum" style="margin-bottom:12px">สรุปผล</h2>
+    <div class="total">
+      <div class="total-num" id="total">—</div>
+      <div class="total-sub" id="total-sub">กรอกผลให้ครบทั้งสามท่าเพื่อดูเปอร์เซ็นต์รวม</div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>ท่า</th><th>ผลของคุณ</th><th>เกณฑ์ 100%</th><th>ระดับที่ได้</th><th>คะแนน</th></tr></thead>
+        <tbody id="sum-body"></tbody>
+        <tfoot><tr><td colspan="4">เฉลี่ยสามท่า</td><td id="sum-avg">—</td></tr></tfoot>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <details>
+      <summary>ดูเกณฑ์ของคุณทุกระดับ</summary>
+      <div class="tbl-wrap"><table id="crit"></table></div>
+    </details>
+  </section>
+
+  <p class="foot">อ้างอิงเกณฑ์การทดสอบสมรรถภาพร่างกายกำลังพล ทบ. (ข้อมูล ณ ม.ค. 67) ให้คะแนนเป็นขั้นตามตาราง ผลที่ต่ำกว่าเกณฑ์ต่ำสุดได้ 0 คะแนน และเฉลี่ยทั้งสามท่าด้วยน้ำหนักเท่ากัน ใช้ประเมินเบื้องต้น ผลทางการให้ยึดตามหน่วยทดสอบ</p>
+</div>
+
+<script>
+(function () {
+  var L10 = [100, 95, 90, 85, 80, 75, 70, 65, 60, 55];
+  var L11 = L10.concat([50]);
+  var AGE = [[14,16],[17,21],[22,26],[27,31],[32,36],[37,41],[42,46],[47,51],[52,55],[56,60]];
+  var MODAGE = [[45,46],[47,51],[52,55],[56,60]];
+  function N(s) { return s.split(',').map(Number); }
+  function T(s) { return s.split(',').map(function (x) { var p = x.split('.'); return (+p[0]) * 60 + (+p[1]); }); }
+
+  // ดันพื้น (ครั้ง/2 นาที) ระดับ 100..50 ตามช่วงอายุ [ชาย, หญิง]
+  var PU = [
+    [N('78,73,68,63,58,53,48,43,38,33,28'), N('54,49,44,39,34,29,24,19,15,12,9')],
+    [N('82,77,72,67,62,57,52,47,42,37,32'), N('58,53,48,43,38,33,28,23,18,15,12')],
+    [N('80,75,70,65,60,55,50,45,40,35,30'), N('56,51,46,41,36,31,26,21,16,13,10')],
+    [N('78,73,68,63,58,53,48,43,38,33,28'), N('54,49,44,39,34,29,24,19,15,12,9')],
+    [N('73,70,63,60,53,50,43,40,33,28,23'), N('52,47,42,37,32,27,22,17,14,11,8')],
+    [N('72,69,62,59,52,49,42,39,32,27,22'), N('48,43,38,33,28,23,18,15,13,10,7')],
+    [N('66,61,56,51,46,41,36,31,26,21,16'), N('45,40,35,30,25,20,17,14,12,9,6')],
+    [N('62,57,52,47,42,37,32,27,22,19,15'), N('41,36,31,26,21,16,13,12,10,8,6')],
+    [N('56,51,46,41,36,31,26,21,16,14,13'), N('40,35,30,25,20,15,12,10,9,7,6')],
+    [N('50,45,40,35,30,25,20,15,14,13,12'), N('34,29,24,19,14,12,10,9,8,7,6')]
+  ];
+  // ดันพื้นอนุโลม (ชาย 45 ปีขึ้นไป)
+  var PUMOD = [
+    N('81,76,71,66,61,56,51,46,41,36,36'),
+    N('77,72,67,62,57,52,47,42,37,34,34'),
+    N('71,66,61,56,51,46,41,36,31,29,27'),
+    N('65,60,55,50,45,40,35,30,29,28,27')
+  ];
+  // กระดานคว่ำ (วินาที) ระดับ 100..55
+  var PL_A = [T('3.30,3.14,2.59,2.41,2.27,2.09,1.55,1.36,1.22,1.18'), T('3.30,3.14,2.59,2.41,2.25,2.09,1.52,1.36,1.20,1.18')];
+  var PL_B = T('3.40,3.24,3.07,2.51,2.35,2.19,2.02,1.46,1.30,1.28');
+  var PL_C = [T('3.35,3.19,3.02,2.46,2.32,2.14,2.00,1.41,1.27,1.23'), T('3.35,3.19,3.02,2.46,2.30,2.14,1.58,1.41,1.25,1.23')];
+  var PL_D = [T('3.25,3.09,2.52,2.36,2.22,2.04,1.50,1.31,1.17,1.13'), T('3.25,3.09,2.52,2.36,2.20,2.04,1.47,1.31,1.15,1.13')];
+  var PL_E = [T('3.20,3.04,2.47,2.31,2.17,1.59,1.45,1.26,1.12,1.08'), T('3.20,3.04,2.47,2.31,2.15,1.59,1.42,1.26,1.10,1.08')];
+  var PL = [PL_A, [PL_B, PL_B], PL_C, PL_A, PL_D, PL_E, PL_E, PL_E, PL_E, PL_E];
+  // วิ่ง 2 กม. (วินาที) ระดับ 100..55
+  var RN_A = [T('7.45,8.10,8.35,9.00,9.25,9.50,10.15,10.40,11.05,11.30'), T('9.45,10.10,10.35,11.00,11.25,11.50,12.15,12.40,13.05,13.30')];
+  var RN = [
+    RN_A,
+    [T('6.50,7.15,7.40,8.05,8.30,8.55,9.20,9.45,10.10,10.35'), T('8.50,9.15,9.40,10.05,10.30,10.55,11.20,11.45,12.10,12.35')],
+    [T('7.15,7.40,8.05,8.30,8.55,9.20,9.45,10.10,10.35,11.00'), T('9.15,9.40,10.05,10.30,10.55,11.20,11.45,12.10,12.35,13.00')],
+    RN_A,
+    [T('8.15,8.40,9.05,9.30,9.55,10.20,10.45,11.10,11.35,12.00'), T('10.15,10.40,11.05,11.30,11.55,12.20,12.45,13.10,13.35,14.00')],
+    [T('8.50,9.15,9.40,10.05,10.30,10.55,11.20,11.45,12.10,12.35'), T('11.05,11.30,11.55,12.20,12.45,13.10,13.35,14.00,14.25,14.50')],
+    [T('9.25,9.50,10.15,10.40,11.05,11.30,11.55,12.20,12.45,13.10'), T('11.35,12.00,12.25,12.50,13.15,13.40,14.05,14.30,14.55,15.20')],
+    [T('10.00,10.25,10.50,11.15,11.40,12.05,12.30,12.55,13.20,13.45'), T('12.00,12.25,12.50,13.15,13.40,14.05,14.30,14.55,15.20,15.45')],
+    [T('10.35,11.00,11.25,11.50,12.15,12.40,13.05,13.30,13.55,14.20'), T('12.40,13.05,13.30,13.55,14.20,14.45,15.10,15.35,16.00,16.25')],
+    [T('11.10,11.35,12.00,12.25,12.50,13.15,13.40,14.05,14.30,14.55'), T('13.10,13.35,14.00,14.25,14.50,15.15,15.40,16.05,16.30,16.55')]
+  ];
+
+  function bandIdx(list, age) {
+    for (var i = 0; i < list.length; i++) if (age >= list[i][0] && age <= list[i][1]) return i;
+    return -1;
+  }
+  function grade(v, th, higher) {
+    for (var i = 0; i < th.length; i++) if (higher ? v >= th[i] : v <= th[i]) return i;
+    return -1;
+  }
+  function mmss(s) { var m = Math.floor(s / 60), x = s % 60; return m + ':' + (x < 10 ? '0' : '') + x; }
+  function $(id) { return document.getElementById(id); }
+  function num(id) { var v = $(id).value; return v === '' ? null : Number(v); }
+
+  var EX = [
+    { key: 'pu', name: 'ดันพื้น', levels: L11, higher: true,
+      fmt: function (v) { return v + ' ครั้ง'; }, tfmt: function (v) { return v; } },
+    { key: 'pl', name: 'กระดานคว่ำ', levels: L10, higher: true,
+      fmt: function (v) { return mmss(v) + ' น.'; }, tfmt: mmss },
+    { key: 'rn', name: 'วิ่ง 2 กม.', levels: L10, higher: false,
+      fmt: function (v) { return mmss(v) + ' น.'; }, tfmt: mmss }
+  ];
+
+  function readValue(key) {
+    if (key === 'pu') return num('pu');
+    var a = key === 'pl' ? 'pm' : 'rm', b = key === 'pl' ? 'ps' : 'rs';
+    var m = num(a), s = num(b);
+    if (m === null && s === null) return null;
+    return (m || 0) * 60 + (s || 0);
+  }
+
+  function thresholds(key, age, sex, mod) {
+    var si = sex === 'm' ? 0 : 1;
+    if (key === 'pu') {
+      if (mod) { var mi = bandIdx(MODAGE, age); if (mi >= 0) return PUMOD[mi]; }
+      return PU[bandIdx(AGE, age)][si];
+    }
+    var b = bandIdx(AGE, age);
+    return (key === 'pl' ? PL : RN)[b][si];
+  }
+
+  function meter(n, idx) {
+    var on = idx < 0 ? 0 : n - idx, h = '<div class="meter" aria-hidden="true">';
+    for (var i = 0; i < n; i++) h += '<i' + (i < on ? ' class="on"' : '') + '></i>';
+    return h + '</div>';
+  }
+
+  function render() {
+    var age = num('age'), sex = document.querySelector('input[name="sex"]:checked').value;
+    var okAge = age !== null && age >= 14 && age <= 60 && Math.floor(age) === age;
+    $('age-err').hidden = okAge || age === null;
+    var modOk = okAge && sex === 'm' && age >= 45;
+    $('mod-wrap').hidden = !modOk;
+    var mod = modOk && $('pumod').checked;
+
+    var rows = '', scores = [], crit = '<thead><tr><th>ท่า</th>' + L11.map(function (l) { return '<th>' + l + '%</th>'; }).join('') + '</tr></thead><tbody>';
+
+    EX.forEach(function (ex) {
+      var box = $('r-' + ex.key), v = readValue(ex.key);
+      if (!okAge) {
+        box.innerHTML = '<p class="empty">กรอกอายุ 14 ถึง 60 ปีก่อน</p>';
+        rows += '<tr><td>' + ex.name + '</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>';
+        return;
+      }
+      var th = thresholds(ex.key, age, sex, mod && ex.key === 'pu');
+      var n = ex.levels.length, idx = v === null ? null : grade(v, th, ex.higher);
+      var sc = idx === null ? null : (idx >= 0 ? ex.levels[idx] : 0);
+
+      // ตารางเกณฑ์ของผู้ใช้
+      crit += '<tr><td>' + ex.name + (mod && ex.key === 'pu' ? ' (อนุโลม)' : '') + '</td>';
+      for (var i = 0; i < L11.length; i++) {
+        if (i >= n) { crit += '<td>—</td>'; continue; }
+        var cell = ex.key === 'pu' ? th[i] : mmss(th[i]);
+        crit += '<td' + (idx === i ? ' class="hit"' : '') + '>' + (ex.higher ? '' : '≤ ') + cell + '</td>';
+      }
+      crit += '</tr>';
+
+      if (v === null) {
+        box.innerHTML = '<p class="empty">กรอกผลของท่านี้เพื่อดูคะแนน</p>';
+        rows += '<tr><td>' + ex.name + '</td><td>—</td><td>' + ex.tfmt(th[0]) + '</td><td>—</td><td>—</td></tr>';
+        return;
+      }
+      scores.push(sc);
+      var next;
+      if (idx === 0) next = 'ได้ระดับสูงสุดแล้ว';
+      else {
+        var tgt = idx < 0 ? n - 1 : idx - 1;
+        next = 'ระดับถัดไป ' + ex.levels[tgt] + '% ต้องได้ ' + (ex.higher ? '≥ ' : '≤ ') + (ex.key === 'pu' ? th[tgt] + ' ครั้ง' : mmss(th[tgt]) + ' น.');
+      }
+      box.innerHTML =
+        '<div class="score-line"><span class="score">' + sc + '</span><span class="of">/ 100</span>' +
+        (idx < 0 ? '<span class="lvl low">ต่ำกว่าเกณฑ์</span>' : '<span class="lvl">ระดับ ' + ex.levels[idx] + '%</span>') + '</div>' +
+        meter(n, idx) +
+        '<div class="meter-scale"><span>' + ex.levels[n - 1] + '%</span><span>100%</span></div>' +
+        '<p class="next">' + next + '</p>';
+      rows += '<tr><td>' + ex.name + '</td><td>' + ex.fmt(v) + '</td><td>' + (ex.higher ? '≥ ' : '≤ ') + (ex.key === 'pu' ? th[0] : mmss(th[0])) + '</td><td>' + (idx < 0 ? 'ต่ำกว่าเกณฑ์' : ex.levels[idx] + '%') + '</td><td><b>' + sc + '</b></td></tr>';
+    });
+
+    $('sum-body').innerHTML = rows;
+    $('crit').innerHTML = okAge ? crit + '</tbody>' : '';
+    if (okAge && scores.length === 3) {
+      var avg = (scores[0] + scores[1] + scores[2]) / 3;
+      var txt = (Math.round(avg * 10) / 10).toString();
+      $('total').innerHTML = txt + '<small>%</small>';
+      $('sum-avg').textContent = txt + ' / 100';
+      $('total-sub').textContent = 'เฉลี่ยจาก ' + scores.join(' + ') + ' หารสาม';
+    } else {
+      $('total').textContent = '—';
+      $('sum-avg').textContent = '—';
+      $('total-sub').textContent = 'กรอกผลให้ครบทั้งสามท่าเพื่อดูเปอร์เซ็นต์รวม';
+    }
+  }
+
+  document.addEventListener('input', render);
+  document.addEventListener('change', render);
+  $('clear').addEventListener('click', function () {
+    ['pu', 'pm', 'ps', 'rm', 'rs'].forEach(function (id) { $(id).value = ''; });
+    $('pumod').checked = false;
+    render();
+    $('pu').focus();
+  });
+  render();
+})();
+</script>
